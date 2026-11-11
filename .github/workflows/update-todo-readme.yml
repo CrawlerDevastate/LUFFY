@@ -1,16 +1,18 @@
 name: Update TODO README
 
 on:
+  push:
+    branches:
+      - dev
+    paths:
+      - .github/workflows/update-todo-readme.yml
   workflow_dispatch:
-    inputs:
-      apply:
-        description: Write and push the README update
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
+
+env:
+  APPLY_MODE: "false"
 
 jobs:
   update-todos:
@@ -24,7 +26,7 @@ jobs:
 
       - name: Scan TODOs and update README
         env:
-          APPLY: ${{ inputs.apply }}
+          APPLY: ${{ env.APPLY_MODE }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
@@ -234,7 +236,7 @@ jobs:
           PY
 
       - name: Commit and push README
-        if: inputs.apply == true
+        if: env.APPLY_MODE == 'true'
         run: |
           set -euo pipefail
           if git diff --quiet -- README.md; then
