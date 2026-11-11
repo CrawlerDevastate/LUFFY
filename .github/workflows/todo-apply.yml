@@ -1,0 +1,54 @@
+name: Apply TODO README
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - .github/workflows/todo-apply.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Run validated TODO sync script in apply mode
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          export BASE_SHA="$(git rev-parse FETCH_HEAD)"
+          export APPLY="true"
+          python - <<'OUTER'
+          import pathlib
+          import re
+          import textwrap
+
+          raw = pathlib.Path(".github/workflows/todo-sync.yml").read_text(encoding="utf-8")
+          match = re.search(r"python - <<'PY'\n(.*?)\n\s*PY\n", raw, re.S)
+          if not match:
+              raise SystemExit("Embedded TODO sync script was not found")
+          code = textwrap.dedent(match.group(1))
+          exec(compile(code, "embedded_todo_sync.py", "exec"), {"__name__": "__main__"})
+          OUTER
+
+      - name: Commit and push README
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- README.md; then
+            echo "No README.md changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: update TODO list for dev implementation"
+          git push origin HEAD:dev
